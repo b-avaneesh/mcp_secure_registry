@@ -1,17 +1,16 @@
 {
-  "name": "mcp_verifier_cli",
+  "name": "mcp-verifier-cli",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "cli.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "type": "module",
+  "dependencies": {
+    "commander": "^15.0.0"
+  }
 }
