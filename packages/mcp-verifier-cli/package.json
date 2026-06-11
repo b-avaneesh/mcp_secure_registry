@@ -11,6 +11,8 @@
   "description": "",
   "type": "module",
   "dependencies": {
-    "commander": "^15.0.0"
+    "axios": "^1.17.0",
+    "commander": "^15.0.0",
+    "mongoose": "^9.7.0"
   }
 }
