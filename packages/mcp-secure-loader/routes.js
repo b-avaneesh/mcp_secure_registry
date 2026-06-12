@@ -2,6 +2,11 @@ const express = require("express");
 require('dotenv').config();
 
 
+/**
+ * Controllers
+ */
+const { githubRedirect} = require("./controller/redirect.controller")
+
 const router = express.Router();
 
 
@@ -36,5 +41,9 @@ router.get('/resolve/:namespace/:serverName', async (req, res) => {
     // 2. Ensure securityScan.status === "PASSED"
     // 3. Use .lean() for maximum performance to return raw strings to client loader
 });
+
+router.get('/oauth/github',
+    githubRedirect
+)
 
 module.exports = router;
