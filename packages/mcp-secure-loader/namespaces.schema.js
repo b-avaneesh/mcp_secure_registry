@@ -1,31 +1,86 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const NamespaceSchema = new mongoose.Schema({
-  namespace: {
-    type: String,
-    required: true,
-    unique: true, // Prevents anyone else from squatting on your domain
-    trim: true,
-    match: /^io\.github\.[a-zA-Z0-9-_]+$/ // Validates domain syntax
-  },
-  ownerId: {
-    type: String,
-    required: true // Numeric GitHub Profile ID from OAuth
-  },
-  publicKey: {
-    type: String,
-    required: true // The Ed25519 Public Key block string
-  },
-  status: {
-    type: String,
-    enum: ['ACTIVE', 'SUSPENDED', 'REVOKED'],
-    default: 'ACTIVE' // Instant administrative kill switch if a key leaks
-  }
-}, {
-  timestamps: true // Automatically tracks createdAt & updatedAt
-});
+const PermissionsSchema = new mongoose.Schema(
+{
+network: {
+type: Boolean,
+default: false
+},
+filesystem: {
+type: Boolean,
+default: false
+},
+environment: {
+type: Boolean,
+default: false
+},
+subprocess: {
+type: Boolean,
+default: false
+}
+},
+{ _id: false }
+);
 
-// Explicit single-field index for namespace lookup performance
-NamespaceSchema.index({ namespace: 1 });
+const NamespaceSchema = new mongoose.Schema(
+{
+namespace: {
+type: String,
+required: true,
+unique: true,
+trim: true,
+match: /^github.[a-zA-Z0-9_-]+$/
+},
 
-module.exports = mongoose.model('namespace_collection', NamespaceSchema);
+ownerId: {
+type: String,
+required: true
+}, //github userId
+
+githubUsername: {
+type: String,
+required: true
+},
+
+email: {
+type: String,
+required: true
+},
+
+emailVerified: {
+type: Boolean,
+default: false
+},
+
+publicKey: {
+type: String,
+required: true
+},
+
+permissions: {
+type: PermissionsSchema,
+default: () => ({})
+},
+
+trustScore: {
+type: Number,
+default: 0
+},
+
+status: {
+type: String,
+enum: ["ACTIVE", "SUSPENDED", "REVOKED"],
+default: "ACTIVE"
+}
+},
+{
+timestamps: true
+}
+);
+
+NamespaceSchema.index({ ownerId: 1 });
+
+module.exports = mongoose.model(
+"namespace_collection",
+NamespaceSchema
+);

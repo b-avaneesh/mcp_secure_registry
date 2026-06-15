@@ -5,8 +5,14 @@ import {exec} from 'child_process';
 import http  from 'http';
 import open, {openApp, apps} from 'open';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
-
+/**
+ * Other directory files.
+ */
+import { generateKey, getKeys } from './keyGenerator.js';
 /**
  * Initialising step.
  */
@@ -29,26 +35,69 @@ program
   .version('1.0.0')
   .option('-d , --debug', 'output extra debugging info');
 
-program
-  .command('chrome')
-  .description("Testing out OPEN library safely")
-  .action(() => {
-    /**
-     * Opens in default browser of user.
-     */
-    console.log("Opening github auth page please wait...")
-    switch(process.platform){
-      case "win32":
-        exec(`start ${GITHUB_URL}`);
-        break;
-      case "darwin":
-        exec(`open "${GITHUB_URL}"`);
-        break;
-      default:
-        exec(`xdg-open "${GITHUB_URL}"`);
-    }
+// program
+//   .command('dir')
+//   .description('Testing fs library')
+//   .action( () =>{
+//     console.log(os.homedir());
+//     /**
+//      * In ES modules - __dirname doesnt work
+//      * Convert to path using fileURLToPath or make use of URL - URL(relative,base) - effectively drops off the 
+//      * .ext of files as well - only pertains directory
+//      */
 
-  });
+//     const configDir = path.join(os.homedir(), '.config', 'mcp-verifier');
+//     const pubPath = configDir+'/id_ed25519.pub';
+//     const privPath = configDir+'/id_ed25519';
+
+//     try{  
+//       const pubKey = fs.readFileSync(pubPath, { encoding: 'utf8', flag: 'r' });
+//       const privKey = fs.readFileSync(privPath, { encoding: 'utf8', flag: 'r' });
+
+//       console.log("Private and public key exists reusing them..");
+//       console.log(pubKey);
+//       console.log(privKey);
+
+//     }
+//     catch(err){
+//       /**
+//        * If the folders/file doesnt exist - then generate pair.
+//        */
+//       if(!fs.existsSync(configDir)){
+//           console.log("Bam path isnt found so we cannot read");
+//           fs.mkdirSync(configDir);
+//       }
+
+//       const {pubKey , privKey} = generateKey();
+//       fs.writeFileSync(pubPath, pubKey); 
+//       fs.writeFileSync(privPath, privKey); 
+//     }
+
+//   })
+
+// program
+//   .command('chrome')
+//   .description("Testing out OPEN library safely")
+//   .action(() => {
+//     /**
+//      * Opens in default browser of user.
+//      */
+//     console.log("Opening github auth page please wait...")
+//     switch(process.platform){
+//       /**
+//        * Process.platform - provides the current OS in use.
+//        */
+//       case "win32":
+//         exec(`start ${GITHUB_URL}`);
+//         break;
+//       case "darwin":
+//         exec(`open "${GITHUB_URL}"`);
+//         break;
+//       default:
+//         exec(`xdg-open "${GITHUB_URL}"`);
+//     }
+
+//   });
  /**
   * To merge the chrome code with login, add key generation.
   */
@@ -57,6 +106,17 @@ program
   .description("User login through GitHub OAuth")
   .action(async() =>{
       const PORT = 4242;
+
+      /**
+       * Open login page - iff JWT doesn't exist. (to be implemented soon)
+       * if(!getJWT()) then login.
+       */
+      openLogin();
+
+      /**
+       * Retrieve keys regardles of what happens in login.
+       */
+      const {privKey, pubKey} = getKeys();
 
       const server = http.createServer(async (req,res) =>{ //creates a http server and returns object.
         /**
@@ -108,4 +168,35 @@ program
 
 // }
 
+program
+  .command('upload')
+  .action(()=>{
+    /**
+     * (1) Apply AST - based on findings - write a comment - high risk - found --> should come from LLM.
+     * (2) Send to LLM - generate scores
+     * (3) Sign file, send along with JWT.
+     */
+  })
+
 program.parse(process.argv);
+
+
+function openLogin(){
+      /**
+     * Opens in default browser of user.
+     */
+    console.log("Opening github auth page please wait...")
+    switch(process.platform){
+      /**
+       * Process.platform - provides the current OS in use.
+       */
+      case "win32":
+        exec(`start ${GITHUB_URL}`);
+        break;
+      case "darwin":
+        exec(`open "${GITHUB_URL}"`);
+        break;
+      default:
+        exec(`xdg-open "${GITHUB_URL}"`);
+    }
+}
