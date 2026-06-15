@@ -8,11 +8,13 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import process from 'process';
 
 /**
  * Other directory files.
  */
 import { generateKey, getKeys } from './keyGenerator.js';
+import { manifestSchema } from './manifestJson.validation.js';
 /**
  * Initialising step.
  */
@@ -35,72 +37,7 @@ program
   .version('1.0.0')
   .option('-d , --debug', 'output extra debugging info');
 
-// program
-//   .command('dir')
-//   .description('Testing fs library')
-//   .action( () =>{
-//     console.log(os.homedir());
-//     /**
-//      * In ES modules - __dirname doesnt work
-//      * Convert to path using fileURLToPath or make use of URL - URL(relative,base) - effectively drops off the 
-//      * .ext of files as well - only pertains directory
-//      */
 
-//     const configDir = path.join(os.homedir(), '.config', 'mcp-verifier');
-//     const pubPath = configDir+'/id_ed25519.pub';
-//     const privPath = configDir+'/id_ed25519';
-
-//     try{  
-//       const pubKey = fs.readFileSync(pubPath, { encoding: 'utf8', flag: 'r' });
-//       const privKey = fs.readFileSync(privPath, { encoding: 'utf8', flag: 'r' });
-
-//       console.log("Private and public key exists reusing them..");
-//       console.log(pubKey);
-//       console.log(privKey);
-
-//     }
-//     catch(err){
-//       /**
-//        * If the folders/file doesnt exist - then generate pair.
-//        */
-//       if(!fs.existsSync(configDir)){
-//           console.log("Bam path isnt found so we cannot read");
-//           fs.mkdirSync(configDir);
-//       }
-
-//       const {pubKey , privKey} = generateKey();
-//       fs.writeFileSync(pubPath, pubKey); 
-//       fs.writeFileSync(privPath, privKey); 
-//     }
-
-//   })
-
-// program
-//   .command('chrome')
-//   .description("Testing out OPEN library safely")
-//   .action(() => {
-//     /**
-//      * Opens in default browser of user.
-//      */
-//     console.log("Opening github auth page please wait...")
-//     switch(process.platform){
-//       /**
-//        * Process.platform - provides the current OS in use.
-//        */
-//       case "win32":
-//         exec(`start ${GITHUB_URL}`);
-//         break;
-//       case "darwin":
-//         exec(`open "${GITHUB_URL}"`);
-//         break;
-//       default:
-//         exec(`xdg-open "${GITHUB_URL}"`);
-//     }
-
-//   });
- /**
-  * To merge the chrome code with login, add key generation.
-  */
 program
   .command('Login')
   .description("User login through GitHub OAuth")
@@ -160,13 +97,7 @@ program
     });
       
   })
-// const options = program.opts();
-// if(options.ava){
-    
-//     console.log("Handsome intelligent dude");
-//     console.log('Options:', options);
 
-// }
 
 program
   .command('upload')
@@ -176,6 +107,58 @@ program
      * (2) Send to LLM - generate scores
      * (3) Sign file, send along with JWT.
      */
+
+    //assuming CLI to be launched in the working dir - searc
+    try{
+
+      if(!fs.existsSync(path.join(process.cwd(),"manifest.json"))) 
+        throw new Error("Create manifest.json in working directory");
+
+      const manifestFile = fs.readFileSync(path.join(process.cwd(),"manifest.json"), "utf-8");
+      const manifestJSON = JSON.parse(manifestFile);
+
+      /**
+       * Perform validation
+       */
+      manifestSchema.parse(manifestJSON);
+      const entryPath = path.join(
+          process.cwd(),
+          manifestJSON.entry
+      );
+
+      if (!fs.existsSync(entryPath)) {
+          throw new Error(
+              `Entry file not found: ${manifestJSON.entry}`
+          );
+      }
+      /**
+       * AST parsing
+       */
+
+
+      /**
+       * Create server instance Followed by LLM Call
+       */
+
+
+      /**
+       * Update metrics - trust score of file etc..
+       */
+
+      /**
+       * Call backend server.
+       */
+
+    }catch(err){
+
+      console.log("Error encountered! ");
+      console.log(err.message);
+
+    }
+
+
+
+    //working on signing logic first, then proceed with AST.
   })
 
 program.parse(process.argv);
