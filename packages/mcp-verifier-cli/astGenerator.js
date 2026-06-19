@@ -2,7 +2,6 @@ import AST from 'abstract-syntax-tree';
 const { parse, find } = AST;
 import fs from 'fs';
 import path from 'path';
-
 /**
  * @example
 *   {
@@ -88,13 +87,21 @@ function performDFS(entryPoint){
         const currFileData = fs.readFileSync(poppedFile, "utf8");
         const currTree = parse(currFileData);
 
+        // console.dir(currTree,{depth:null});
 
-        const imports = find(currTree,{type: "ImportDeclaration"});
+        const importDeclarations = find(currTree, { type: 'ImportDeclaration' });
+        const variableDeclarations = find(currTree, { type: 'VariableDeclaration' });
+        const callExpressions = find(currTree, { type: 'CallExpression' });
+
+        const imports = [...importDeclarations, ...variableDeclarations];
+
+        console.dir(callExpressions,{depth:null});
+
         /**
          * Extract the imports push them into stack - high priority
          */
         imports.forEach((imp) =>{
-        if(imp.source.value.startsWith("./") || imp.source.value.startsWith("../")){
+        if(imp?.source?.value.startsWith("./") || imp?.source?.value.startsWith("../")){
 
             //in this case push it into the file queue.
             const newFile = path.resolve(path.dirname(poppedFile),imp.source.value)
@@ -104,6 +111,11 @@ function performDFS(entryPoint){
             }
 
         }
+        //Common js implementation.
+        // if(imp?.declarations[0]?.init?.callee == 'require' && (imp?.declarations[0]?.init?.arguments?.value.startsWith == './'  || imp?.declarations[0]?.init?.arguments?.value.startsWith == '../' ))
+        // {
+
+        // }
         /**
          * Process file for specific line of codes like 
          */
@@ -111,5 +123,9 @@ function performDFS(entryPoint){
     })
     }
 }
-
+/**
+ * Findings - 16/06/2026
+ * 
+ */
+performDFS("./test.js");
 export { performDFS };

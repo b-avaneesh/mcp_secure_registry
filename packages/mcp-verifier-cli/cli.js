@@ -15,6 +15,7 @@ import process from 'process';
  */
 import { generateKey, getKeys } from './keyGenerator.js';
 import { manifestSchema } from './manifestJson.validation.js';
+import { writeToken, readToken } from './tokenHandler.js';
 /**
  * Initialising step.
  */
@@ -27,7 +28,6 @@ const { GIHUB_CLIENT_ID, REDIRECT_URI, GITHUB_URL } = process.env;
  * Building URL
  */
 
-const github_url = ` https://github.com/login/oauth/authorize?client_id=${GIHUB_CLIENT_ID}&redirect_uri=${REDIRECT_URI}`
 /**
  * Defining tools
  */
@@ -69,6 +69,8 @@ program
         const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
         const pathname = parsedUrl.pathname; //the endpoint path - same as req.url
         const method = req.method;
+        const queryParams = parsedUrl.searchParams;
+        
 
         if(method == "GET" && pathname == "/trial/testing"){
               res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -82,12 +84,21 @@ program
                 console.log("Graceful exit mate!");
               })
         }
-        else{
-          /**
-           * to catch requests to invalid endpoints.
-           */
-          res.writeHead(404,{"Content-Type":"text/plain"});
-          res.end("Hey mate reached a undefined endpoint");
+        else if(method == "GET" && pathname ==="/getToken"){
+              const token = queryParams.get('token');
+              console.log("JWT RECEIVED!");
+              console.log(token);
+               /**
+                * Perform write into default dir.
+                */
+               
+              writeToken(token);
+              res.writeHead(200, { 'Content-Type': 'application/json' })
+              res.end("Closing server\n"); 
+              server.close(() =>{
+                console.log("Graceful exit mate!");
+              })
+
         }
         })
 
