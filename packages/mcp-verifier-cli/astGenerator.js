@@ -96,6 +96,9 @@ function performDFS(entryPoint){
         const imports = [...importDeclarations, ...variableDeclarations];
 
         console.dir(callExpressions,{depth:null});
+        console.log("...");
+        console.log("Now variable decl.")
+        console.dir(variableDeclarations,{depth:null});
 
         /**
          * Extract the imports push them into stack - high priority
@@ -125,6 +128,32 @@ function performDFS(entryPoint){
 }
 /**
  * Findings - 16/06/2026
+ * 
+ */
+
+/**20-06-2026
+ * Cases:
+ * 
+ * (1) CallExpression:
+ *  callee.name - exec - arguments.value valuestarts with rm (trim initially)
+ *  callee.object - http - callee.property.name - request
+ *  callee.object.name - fs - callee.property.name - (lets decide) -arguments.value - (trime) and - begins with /var/log/syslog
+ * 
+ * (2)Variable declaration:
+ * if variables referencing to .env data is sent over network - flag - high risk.
+ * 
+ * 
+ * KEEPING TRACK OF .ENV VARIABLES
+ * type == VariableDeclaration
+ * kind: const.
+ * trackVariables - a set - now, add those variables where.
+ * for each variableDeclaration init.object.object.name === process and variableDeclaration init.object.property.name === env
+ * 
+ * 
+ * CHECK IF A NETWORK REQUEST INVOLVES ANY VARIABLE BELONGING IN TRACKVARIABLES.
+ * callee.object.name === http && calleee.property.name === request --> arguments.forEach( arg => { if(arg.key.name == body){
+ *  arg.properties.forEach( prop => if(prop.val.name in set) flag!);
+ * }})
  * 
  */
 performDFS("./test.js");

