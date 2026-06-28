@@ -151,7 +151,21 @@ program
        * Create server instance Followed by LLM Call
        */
 
+      const server = http.createServer( async (req,res)=>{
+        const endpoint = req.url;
+        const parsedUrl= new URL(req.url,`http://${req.headers.host}`)
+        const method = req.method;
+        const queryParams = parsedUrl.searchParams;
+        /**
+         * Perform post to LLM.
+         * Flow:
+         * Temp .json file creation in default path, followed by llm call (attaching this file), 
+         * followed by deletion of temp file.
+         */
+        const prompt = "";
 
+
+      })
       /**
        * Update metrics - trust score of file etc..
        */

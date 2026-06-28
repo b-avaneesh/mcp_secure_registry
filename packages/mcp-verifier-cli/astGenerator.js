@@ -2,6 +2,10 @@ import AST from 'abstract-syntax-tree';
 const { parse, find } = AST;
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
+import {bundleProject, generateSHA} from './signProject.js';
+import esprima from 'esprima';
+import estraverse from 'estraverse';
 /**
  * @example
 *   {
@@ -67,65 +71,394 @@ import path from 'path';
     continue;
 }
  */
-function performDFS(entryPoint){
+const SENSITIVE_PATHS = [
+  // Windows
+  "system32",
+  "syswow64",
+  "windows",
+  "program files",
+  "program files (x86)",
+  "users",
+  "appdata",
+  "programdata",
+
+  // Linux / macOS
+  "/etc",
+  "/bin",
+  "/sbin",
+  "/usr",
+  "/boot",
+  "/root",
+  "/var",
+  "/lib",
+  "/lib64",
+  "/opt",
+  "/home",
+
+  // macOS specific
+  "/system",
+  "/applications",
+  "/library",
+];
+const FILE_WRITE_APIS = [
+  "writeFile",
+  "writeFileSync",
+  "appendFile",
+  "appendFileSync",
+  "truncate",
+  "truncateSync",
+  "rename",
+  "renameSync",
+  "unlink",
+  "unlinkSync",
+  "rm",
+  "rmSync",
+  "rmdir",
+  "rmdirSync",
+  "copyFile",
+  "copyFileSync",
+  "createWriteStream",
+  "mkdir",
+  "mkdirSync",
+  "chmod",
+  "chmodSync",
+  "chown",
+  "chownSync"
+];
+const DESTRUCTIVE_COMMANDS = [
+  // Windows
+  "del",
+  "erase",
+  "rmdir",
+  "rd",
+  "format",
+  "takeown",
+  "icacls",
+
+  // Linux/macOS
+  "rm",
+  "mv",
+  "chmod",
+  "chown",
+  "dd",
+  "mkfs",
+  "shred"
+];
+
+const NET_LIBS = [
+  "http",
+  "https",
+  "net",
+  "tls",
+  "axios",
+  "got",
+  "undici"
+]
+const NET_METHODS = [
+  "request",
+  "get",
+  "post",
+  "put",
+  "delete",
+  "connect",
+  "fetch"
+]
+/**
+ * SHA TRACKING
+ */
+let shaFile = [];
+
+/**
+ * FILE TRACKING
+ */
+let fileQueue = [];
+const visited = new Set();
+
+/**
+ * FLAG VAR
+ */
+let varTracked = new Set();
+let largeArrCount = 0;
+let literalCount = 0;
+let hexStringCount = 0;
+let networkCalls = 0;
+let harmfullCode = 0;
+let maxArrayDepth = 0;
+
+let llmJson = [];
+let flagged = [];
+let allEnv = [];
+import os from 'os';
 
 
-    let fileQueue = []; //the stack
-    const visited = new Set();
+function testHex(node){
+    if(!node) return 0;
+
+    if(node?.type == 'Literal' && typeof node.value === "string"){
+        literalCount++;
+        if (/\\x[0-9a-fA-F]{2}/.test(node.raw)) {
+                hexStringCount++;
+        }
+    }
+
+    return 0;
+}
+function countElementsRecursively(node) {
+    if (!node) return 0;
+
+    testHex(node);
+
+    if (node.type === 'ArrayExpression' && node.elements) {
+        let count = 0;
+        for (const element of node.elements) {
+            count += countElementsRecursively(element);
+        }
+        return count;
+    }
+
+    return 1;
+}
+
+function normalize(p) {
+    return path.normalize(p)
+               .replace(/\\/g, "/")
+               .toLowerCase();
+}
+
+
+
+
+function performDFS(entryPoint) {
 
     fileQueue.push(entryPoint);
 
-    while(fileQueue.length != 0){
+    while (fileQueue.length !== 0) {
 
-        /**
-         * Pop file dir from stack, read from file and generate tree.
-         */
+        console.log("Reading from file");
+
         const poppedFile = fileQueue.pop();
-        if(visited.has(poppedFile)) continue;
+
+        console.log(poppedFile);
+
+        if (visited.has(poppedFile))
+            continue;
+
         visited.add(poppedFile);
-        
+
         const currFileData = fs.readFileSync(poppedFile, "utf8");
-        const currTree = parse(currFileData);
 
-        // console.dir(currTree,{depth:null});
-
-        const importDeclarations = find(currTree, { type: 'ImportDeclaration' });
-        const variableDeclarations = find(currTree, { type: 'VariableDeclaration' });
-        const callExpressions = find(currTree, { type: 'CallExpression' });
-
-        const imports = [...importDeclarations, ...variableDeclarations];
-
-        console.dir(callExpressions,{depth:null});
-        console.log("...");
-        console.log("Now variable decl.")
-        console.dir(variableDeclarations,{depth:null});
+        const currTree = esprima.parseModule(currFileData, {
+            loc: true,
+            range: true,
+            tolerant: true
+        });
 
         /**
-         * Extract the imports push them into stack - high priority
+         * SHA generation
          */
-        imports.forEach((imp) =>{
-        if(imp?.source?.value.startsWith("./") || imp?.source?.value.startsWith("../")){
+        const projectRoot = process.cwd();
 
-            //in this case push it into the file queue.
-            const newFile = path.resolve(path.dirname(poppedFile),imp.source.value)
+        const relativePath = path.relative(
+            projectRoot,
+            poppedFile
+        );
 
-            if(!visited.has(newFile)) {
-                fileQueue.push(newFile);
+        const sha256Hash = crypto
+            .createHash("sha256")
+            .update(currFileData)
+            .digest("hex");
+
+        shaFile.push([relativePath, sha256Hash]);
+
+        /**
+         * Traverse AST
+         */
+        estraverse.traverse(currTree, {
+
+            enter(node) {
+                /**
+                 * IMPORTS
+                 */
+                if (node.type === "ImportDeclaration") {
+
+                    if (
+                        node.source?.value.startsWith("./") ||
+                        node.source?.value.startsWith("../")
+                    ) {
+
+                        const newFile = path.resolve(
+                            path.dirname(poppedFile),
+                            node.source.value
+                        );
+
+                        if (!visited.has(newFile))
+                            fileQueue.push(newFile);
+                    }
+                }
+
+                /**------------------------------------------
+                 * VARIABLE DECLARATIOn
+                 * Check for hexString
+                 * -------------------------------------------
+                 */
+                hexStringCount = hexStringCount + testHex(node)
+
+                if (node.type === "VariableDeclaration") {
+                    console.dir(node, {depth:null});
+
+                    node.declarations.forEach(dec => {
+
+                        /**
+                         * Large array detection
+                         */
+                        if (dec.init?.elements?.length >=5) {
+                            largeArrCount = largeArrCount + countElementsRecursively(dec.init);
+                        }
+
+                        /**
+                         * const x = process.env.SECRET
+                         */
+                        if (
+                            dec.type === "VariableDeclarator" &&
+                            dec.init?.object?.object?.name === "process" &&
+                            dec.init?.object?.property?.name === "env"
+                        ) {
+
+                            varTracked.add(dec.id.name);
+                        }
+
+                        /**
+                         * const {SECRET_KEY} = process.env;
+                         */
+                        else if (
+                            dec.type === "VariableDeclarator" &&
+                            dec.id?.type === "ObjectPattern" &&
+                            dec.init?.object?.name === "process" &&
+                            dec.init?.property?.name === "env"
+                        ) {
+
+                            dec.id.properties.forEach(prop => {
+                                varTracked.add(prop.value.name);
+                            });
+
+                        }
+                        else if(dec?.init?.type === "Literal"){
+                            testHex(dec.init);
+                        }
+                        /**
+                         * Taint anaylsis babe.
+                         */
+                        else if(varTracked.has(dec?.init?.name)){
+                            //tainted variable!
+                            //harmfullCode++;
+                            varTracked.add(dec?.id?.name);
+                        }
+                    });
+
+
+
+                }
+
+                /**-------------------------------------
+                 * FUNCTION CALLS
+                 * -------------------------------------
+                 */
+                else if (node.type === "CallExpression") {
+
+                    if(node?.callee?.name == "spawn" || node?.callee?.name == "eval" || node?.callee?.object?.name == "vm") {
+                        // console.dir(node, {depth:null});
+                        llmJson.push(JSON.stringify(node));
+                    }
+                    if(node?.callee?.name == "exec" || node.callee?.property?.name === "exec") {
+                       // console.dir(node, {depth:null});
+
+                        if(node?.arguments){
+                            node.arguments.forEach(arg => {
+                                const parts = arg.value.trim().split(/\s+/);
+                                const command = parts[0];
+                                if(DESTRUCTIVE_COMMANDS.includes(command)){
+                                    harmfullCode = harmfullCode + 1;
+                                    llmJson.push(JSON.stringify(node));  
+                                }
+                            })
+                        }
+                        // llmJson.push(JSON.stringify(node));
+                    }
+                    /**
+                     * http.request(...)
+                     * axios.post(...)
+                     * etc.
+                     */
+                    if (
+                        NET_METHODS.includes(
+                            node.callee?.property?.name
+                        )
+                    ) {
+                        networkCalls=networkCalls+1;
+                        llmJson.push(JSON.stringify(node));
+
+                        // TODO:
+                        // Inspect arguments and determine whether
+                        // tracked env vars are being sent.
+
+                    }
+                    if(FILE_WRITE_APIS.includes()){
+
+                    }
+                    if (
+                    node.type === "Literal" &&
+                    typeof node.value === "string"
+                ) {
+                    literalCount++;
+
+                    if (/\\x[0-9a-fA-F]{2}/.test(node.raw)) {
+                        hexStringCount++;
+                    }
+                }
+
+                }
+
             }
 
-        }
-        //Common js implementation.
-        // if(imp?.declarations[0]?.init?.callee == 'require' && (imp?.declarations[0]?.init?.arguments?.value.startsWith == './'  || imp?.declarations[0]?.init?.arguments?.value.startsWith == '../' ))
-        // {
+        });
 
-        // }
-        /**
-         * Process file for specific line of codes like 
-         */
-
-    })
+        console.log("Variable split out:");
+        console.log([...varTracked]);
     }
+    console.log("=== AST Scan Summary ===");
+console.log("Tracked Variables:", varTracked);
+console.log("Large Array Count:", largeArrCount);
+console.log("Literal Count:", literalCount);
+console.log("Hex String Count:", hexStringCount);
+console.log("Network Calls:", networkCalls);
+console.log("Harmful Code Matches:", harmfullCode);
+console.log("Maximum Array Depth:", maxArrayDepth);
+console.log("========================");
+    /**
+     * Final SHA
+     */
+    shaFile.sort((a, b) => a[0].localeCompare(b[0]));
+
+    console.log("Sha for each file");
+    console.log(shaFile);
+
+    const cumulativeSHA = shaFile
+        .map(([file, sha]) => `${file}:${sha}`)
+        .join("\n");
+
+    const finalSHA = crypto
+        .createHash("sha256")
+        .update(cumulativeSHA)
+        .digest("hex");
+
+    console.log("SHA baby!");
+    console.log(finalSHA);
+    console.log("Ughmm dirsplaying dir")
+        console.log(os.homedir())
+
+    // call LLM
 }
+
 /**
  * Findings - 16/06/2026
  * 

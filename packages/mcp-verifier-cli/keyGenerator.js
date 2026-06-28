@@ -6,7 +6,7 @@ dotenv.config();
 
 import { generateKeyPairSync } from 'crypto';
 
-const { SECRET_KEY } = process.env;
+const { SECRET_KEY, SOMETHING_ELSE } = process.env;
 
 function generateKey() {
   if (!SECRET_KEY) {
