@@ -6,7 +6,7 @@ import http from 'http';
 import { exec, spawn } from 'child_process';
 import vm from 'vm';
 import * as net from 'net';
-//import {generateKey,getKeys } from './keyGenerator.js'
+import {generateKey,getKeys } from './keyGenerator.js'
 
 // ─── CATEGORY 1: Dynamic Code Execution ───────────────────────────────────────
 eval("console.log('hello')");

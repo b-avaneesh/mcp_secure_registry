@@ -1,4 +1,4 @@
-const namespace = require("../namespaces.schema");
+const namespace = require("../Schema/namespaces.schema");
 const async_handler = require("express-async-handler");
 require("dotenv").config();
 

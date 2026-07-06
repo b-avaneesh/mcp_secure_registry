@@ -198,6 +198,11 @@ function testHex(node){
         literalCount++;
         if (/\\x[0-9a-fA-F]{2}/.test(node.raw)) {
                 hexStringCount++;
+                llmJson.push({
+                    observation: "HEX_STRING",
+                    line: node.loc?.start?.line,
+                    value: node.value
+                });
         }
     }
 
@@ -304,7 +309,7 @@ function performDFS(entryPoint) {
                 hexStringCount = hexStringCount + testHex(node)
 
                 if (node.type === "VariableDeclaration") {
-                    console.dir(node, {depth:null});
+                    //console.dir(node, {depth:null});
 
                     node.declarations.forEach(dec => {
 
@@ -312,7 +317,14 @@ function performDFS(entryPoint) {
                          * Large array detection
                          */
                         if (dec.init?.elements?.length >=5) {
-                            largeArrCount = largeArrCount + countElementsRecursively(dec.init);
+                            eleCount = countElementsRecursively(dec.init);
+                            largeArrCount ++;
+                            llmJson.push({
+                                observation: "LARGE_ARRAY",
+                                file: relativePath,
+                                line: dec.loc?.start?.line,
+                                elementCount: eleCount
+                            });
                         }
 
                         /**
@@ -325,6 +337,12 @@ function performDFS(entryPoint) {
                         ) {
 
                             varTracked.add(dec.id.name);
+                            llmJson.push({
+                                observation: "ENVIRONMENT_VARIABLE",
+                                file: relativePath,
+                                line: dec.loc?.start?.line,
+                                variable: dec.id.name
+                            });
                         }
 
                         /**
@@ -339,6 +357,12 @@ function performDFS(entryPoint) {
 
                             dec.id.properties.forEach(prop => {
                                 varTracked.add(prop.value.name);
+                                    llmJson.push({
+                                    observation: "ENVIRONMENT_VARIABLE",
+                                    file: relativePath,
+                                    line: prop.loc?.start?.line,
+                                    variable: prop.value.name
+                                });
                             });
 
                         }
@@ -352,6 +376,12 @@ function performDFS(entryPoint) {
                             //tainted variable!
                             //harmfullCode++;
                             varTracked.add(dec?.id?.name);
+                            llmJson.push({
+                                observation: "TAINTED_ENVIRONMENT_VARIABLE",
+                                file: relativePath,
+                                line: dec.loc?.start?.line,
+                                variable: dec.id.name
+                            });
                         }
                     });
 
@@ -367,7 +397,13 @@ function performDFS(entryPoint) {
 
                     if(node?.callee?.name == "spawn" || node?.callee?.name == "eval" || node?.callee?.object?.name == "vm") {
                         // console.dir(node, {depth:null});
-                        llmJson.push(JSON.stringify(node));
+                        //llmJson.push(JSON.stringify(node));
+                        llmJson.push({
+                            observation: "DYNAMIC_EXECUTION",
+                            file: relativePath,
+                            line: node.loc?.start?.line,
+                            ast: node
+                        });
                     }
                     if(node?.callee?.name == "exec" || node.callee?.property?.name === "exec") {
                        // console.dir(node, {depth:null});
@@ -378,7 +414,15 @@ function performDFS(entryPoint) {
                                 const command = parts[0];
                                 if(DESTRUCTIVE_COMMANDS.includes(command)){
                                     harmfullCode = harmfullCode + 1;
-                                    llmJson.push(JSON.stringify(node));  
+                                    //llmJson.push(JSON.stringify(node));
+                                    llmJson.push({
+                                        observation: "EXEC_COMMAND",
+                                        file: relativePath,
+                                        line: node.loc?.start?.line,
+                                        command,
+                                        ast: node
+                                    });
+
                                 }
                             })
                         }
@@ -395,7 +439,13 @@ function performDFS(entryPoint) {
                         )
                     ) {
                         networkCalls=networkCalls+1;
-                        llmJson.push(JSON.stringify(node));
+                        //llmJson.push(JSON.stringify(node));
+                        llmJson.push({
+                            observation: "NETWORK_CALL",
+                            file: relativePath,
+                            line: node.loc?.start?.line,
+                            ast: node
+                        });
 
                         // TODO:
                         // Inspect arguments and determine whether
@@ -413,6 +463,11 @@ function performDFS(entryPoint) {
 
                     if (/\\x[0-9a-fA-F]{2}/.test(node.raw)) {
                         hexStringCount++;
+                        llmJson.push({
+                        observation: "HEX_STRING",
+                        line: node.loc?.start?.line,
+                        value: node.value
+                        });
                     }
                 }
 
@@ -425,15 +480,16 @@ function performDFS(entryPoint) {
         console.log("Variable split out:");
         console.log([...varTracked]);
     }
+    //console.dir(llmJson, {depth:null});
     console.log("=== AST Scan Summary ===");
-console.log("Tracked Variables:", varTracked);
-console.log("Large Array Count:", largeArrCount);
-console.log("Literal Count:", literalCount);
-console.log("Hex String Count:", hexStringCount);
-console.log("Network Calls:", networkCalls);
-console.log("Harmful Code Matches:", harmfullCode);
-console.log("Maximum Array Depth:", maxArrayDepth);
-console.log("========================");
+    console.log("Tracked Variables:", varTracked);
+    console.log("Large Array Count:", largeArrCount);
+    console.log("Literal Count:", literalCount);
+    console.log("Hex String Count:", hexStringCount);
+    console.log("Network Calls:", networkCalls);
+    console.log("Harmful Code Matches:", harmfullCode);
+    console.log("Maximum Array Depth:", maxArrayDepth);
+    console.log("========================");
     /**
      * Final SHA
      */
@@ -453,8 +509,24 @@ console.log("========================");
 
     console.log("SHA baby!");
     console.log(finalSHA);
-    console.log("Ughmm dirsplaying dir")
-        console.log(os.homedir())
+    return {
+        projectHash: finalSHA,
+
+        fileHashes: shaFile,
+
+        statistics: {
+            networkCalls,
+            harmfulCode: harmfullCode,
+            largeArrayCount: largeArrCount,
+            literalCount,
+            hexStringCount,
+            maxArrayDepth
+        },
+
+        trackedEnvironmentVariables: [...varTracked],
+
+        observations: llmJson
+    };
 
     // call LLM
 }

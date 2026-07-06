@@ -31,11 +31,20 @@ function verifyUserToken(token) {
     const decoded = jwt.verify(token, JWT_SECRET);
     return { success: true, data: decoded };
   } catch (error) {
-    return { success: false, error: error.message };
+    if (error.name === "TokenExpiredError") {
+      return {
+        success: false,
+        data: "JWT expired. Please log in again."
+      };
+    }
+
+    return {
+      success: false,
+      data: "Invalid JWT."
+    };
   }
 }
 
-// Export the functions cleanly using CommonJS
 module.exports = {
   signUserToken,
   verifyUserToken

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import {exec} from 'child_process';
+import {exec, execSync} from 'child_process';
 import http  from 'http';
 import open, {openApp, apps} from 'open';
 import dotenv from 'dotenv';
@@ -9,6 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import process from 'process';
+import crypto from 'crypto';
 
 /**
  * Other directory files.
@@ -16,12 +17,14 @@ import process from 'process';
 import { generateKey, getKeys } from './keyGenerator.js';
 import { manifestSchema } from './manifestJson.validation.js';
 import { writeToken, readToken } from './tokenHandler.js';
+import { performDFS } from './astGenerator.js';
+import { send_to_llm } from './llm.js';
 /**
  * Initialising step.
  */
 dotenv.config();
 const program = new Command();
-const { GIHUB_CLIENT_ID, REDIRECT_URI, GITHUB_URL } = process.env;
+const { GIHUB_CLIENT_ID, REDIRECT_URI, GITHUB_URL, BACKEND } = process.env;
 
 
 /**
@@ -111,8 +114,8 @@ program
 
 
 program
-  .command('upload')
-  .action(()=>{
+  .command('publish')
+  .action(async ()=>{
     /**
      * (1) Apply AST - based on findings - write a comment - high risk - found --> should come from LLM.
      * (2) Send to LLM - generate scores
@@ -125,6 +128,10 @@ program
       if(!fs.existsSync(path.join(process.cwd(),"manifest.json"))) 
         throw new Error("Create manifest.json in working directory");
 
+      /**
+       * Manifest to be present outside src/ folder.
+       * Present in .git directory.
+       */
       const manifestFile = fs.readFileSync(path.join(process.cwd(),"manifest.json"), "utf-8");
       const manifestJSON = JSON.parse(manifestFile);
 
@@ -136,43 +143,53 @@ program
           process.cwd(),
           manifestJSON.entry
       );
-
+      
       if (!fs.existsSync(entryPath)) {
           throw new Error(
               `Entry file not found: ${manifestJSON.entry}`
           );
       }
+
       /**
        * AST parsing
        */
+        const astOutput = performDFS(entryPath); //need to delegate to worker.
+        astOutput.package = {
+            name: manifestJSON.name,
+            version: manifestJSON.version,
+            repository: manifestJSON.repository?.url,
+            permissions: manifestJSON.permissions
+        };        
+        const response = await send_to_llm(astOutput);
+        console.log("response from LLM:")
+        console.log(response);
 
 
-      /**
-       * Create server instance Followed by LLM Call
-       */
-
-      const server = http.createServer( async (req,res)=>{
-        const endpoint = req.url;
-        const parsedUrl= new URL(req.url,`http://${req.headers.host}`)
-        const method = req.method;
-        const queryParams = parsedUrl.searchParams;
         /**
-         * Perform post to LLM.
-         * Flow:
-         * Temp .json file creation in default path, followed by llm call (attaching this file), 
-         * followed by deletion of temp file.
-         */
-        const prompt = "";
-
-
-      })
-      /**
-       * Update metrics - trust score of file etc..
+       * Retrieve commit id.
+       * Generate hash.
        */
+
+        const repositoryUrl = execSync("git config --get remote.origin.url")
+          .toString()
+          .trim();
+
+        const branch = execSync("git branch --show-current")
+          .toString()
+          .trim();
+
+        const commitId = execSync("git rev-parse HEAD")
+          .toString()
+          .trim();    
+
+        // const tempFolder = path.join(os.tmpdir(),'mcp-cli');
+        // fs.writeFileSync(tempFolder,astOutput.toString())
+
 
       /**
        * Call backend server.
        */
+      await fetch()
 
     }catch(err){
 

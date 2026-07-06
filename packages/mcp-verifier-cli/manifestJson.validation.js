@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 const manifestSchema = z.object({
@@ -21,13 +20,33 @@ const manifestSchema = z.object({
         .string()
         .min(1, "Entry point is missing in manifest.json"),
 
-    author: z
-        .string()
+    repository: z
+        .object({
+            type: z.enum(["git"], {
+                error: "Repository type must be 'git'.",
+            }),
+
+            url: z
+                .string()
+                .url("Repository URL must be a valid URL"),
+        })
         .optional(),
 
-    repository: z
+    author: z
+        .object({
+            name: z
+                .string()
+                .min(1, "Author name cannot be empty"),
+
+            email: z
+                .string()
+                .email("Author email must be valid"),
+        })
+        .optional(),
+
+    license: z
         .string()
-        .url("Repository must be a valid URL")
+        .min(1, "License cannot be empty")
         .optional(),
 
     permissions: z
@@ -36,10 +55,10 @@ const manifestSchema = z.object({
                 "network",
                 "filesystem",
                 "process",
-                "env"
+                "env",
             ])
         )
         .default([]),
 });
 
-export{manifestSchema};
+export { manifestSchema };

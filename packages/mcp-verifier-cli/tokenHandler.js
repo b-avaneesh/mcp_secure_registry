@@ -1,7 +1,8 @@
 import os from 'os';
 import fs from 'fs';
+import path from 'path';
 
-const CONFIG_DIR = path.join(os.home,'.config','mcp-verifier');
+const CONFIG_DIR = path.join(os.homedir(),'.config','mcp-verifier');
 const CONFIG_FILE_PATH = path.join(CONFIG_DIR, 'config.json');
 
 /**
