@@ -1,6 +1,9 @@
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
+import dotenv from 'dotenv';
+dotenv.config();
+const { SECRET_KEY, GIHUB_CLIENT_ID, REDIRECT_URI, GITHUB_URL, BACKEND, PUBLISH_URI } = process.env;
 
 const CONFIG_DIR = path.join(os.homedir(),'.config','mcp-verifier');
 const CONFIG_FILE_PATH = path.join(CONFIG_DIR, 'config.json');
@@ -25,11 +28,12 @@ function writeToken(token){
 }
 
 function readToken(){
-    if(fs.existsSync(CONFIG_DIR)){
+    if(!fs.existsSync(CONFIG_DIR)){
         console.log("JWT doesn't exist. Perform login first!");
     }
     const data = fs.readFileSync(CONFIG_FILE_PATH, {flag:'r', encoding:'utf-8'});
-    const { token } = JSON.parse(data);
+    const { token, updatedAt } = JSON.parse(data);
+    console.log(`Latest jwt update: ${updatedAt}`);
     return token;
 }
 

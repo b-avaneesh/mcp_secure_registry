@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const PublicKeySchema = new mongoose.Schema(
     {
@@ -80,4 +80,7 @@ const DeveloperSchema = new mongoose.Schema(
     }
 );
 
-export default mongoose.model("developer_collection", DeveloperSchema);
+module.exports = mongoose.model(
+    "developer_collection",
+    DeveloperSchema
+);

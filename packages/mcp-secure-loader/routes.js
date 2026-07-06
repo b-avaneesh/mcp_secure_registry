@@ -1,6 +1,6 @@
 const express = require("express");
 require('dotenv').config();
-
+const {verifyUserToken} = require('./jwt.js')
 
 /**
  * Controllers
@@ -47,7 +47,25 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/publish', async (req, res) => {
-    res.status(501).json({ msg: "Not implemented" });
+    const auth = req?.headers?.authorization || req?.headers?.Authorization;
+    let tokenOutput;
+
+    if(auth.startsWith('Bearer ')){
+            const words = auth.split(' ');
+            const token = words[1];
+            tokenOutput = verifyUserToken(token);
+    }
+
+    if(!tokenOutput){
+        res.status(401).json({ msg:tokenOutput.msg });
+    }
+
+    /**
+     * Call controller for further processing.
+     */
+    console.log(req.body);
+
+    res.status(200).json({ msg: "Reached end point!" });
 });
 
 router.get('/resolve/:namespace/:serverName', async (req, res) => {

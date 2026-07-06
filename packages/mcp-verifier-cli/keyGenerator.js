@@ -38,6 +38,11 @@ function generateKey() {
   }
 }
 
+
+  const configDir = path.join(os.homedir(), '.config', 'mcp-verifier');
+  const pubPath = path.join(configDir, 'id_ed25519.pub');
+  const privPath = path.join(configDir, 'id_ed25519');
+
 function getKeys(){
     console.log(os.homedir());
     /**
@@ -46,9 +51,7 @@ function getKeys(){
      * .ext of files as well - only pertains directory
      */
 
-    const configDir = path.join(os.homedir(), '.config', 'mcp-verifier');
-    const pubPath = path.join(configDir, 'id_ed25519.pub');
-    const privPath = path.join(configDir, 'id_ed25519');
+
 
     try{  
         const pubKey = fs.readFileSync(pubPath, { encoding: 'utf8', flag: 'r' });
@@ -83,4 +86,4 @@ function getKeys(){
 
 
 // Corrected module export syntax
-export { generateKey, getKeys };
+export { generateKey, getKeys, privPath, pubPath };

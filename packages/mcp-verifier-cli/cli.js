@@ -14,7 +14,7 @@ import crypto from 'crypto';
 /**
  * Other directory files.
  */
-import { generateKey, getKeys } from './keyGenerator.js';
+import { generateKey, getKeys, privPath, pubPath } from './keyGenerator.js';
 import { manifestSchema } from './manifestJson.validation.js';
 import { writeToken, readToken } from './tokenHandler.js';
 import { performDFS } from './astGenerator.js';
@@ -24,7 +24,7 @@ import { send_to_llm } from './llm.js';
  */
 dotenv.config();
 const program = new Command();
-const { GIHUB_CLIENT_ID, REDIRECT_URI, GITHUB_URL, BACKEND } = process.env;
+const { SECRET_KEY, GIHUB_CLIENT_ID, REDIRECT_URI, GITHUB_URL, BACKEND, PUBLISH_URI } = process.env;
 
 
 /**
@@ -160,16 +160,58 @@ program
             repository: manifestJSON.repository?.url,
             permissions: manifestJSON.permissions
         };        
-        const response = await send_to_llm(astOutput);
-        console.log("response from LLM:")
-        console.log(response);
 
+         /**
+         * Manifest Json Hash. - Buffer doesn't take json objects as input!
+         */
+        const manifestHash = crypto.createHash('sha256').update(Buffer.from(JSON.stringify(manifestJSON))).digest('hex');
+
+        /**
+         * Private key is encrypted with secret need to retrieve it first.
+         */
+        const {privKey, pubKey} = getKeys();
+        console.log(typeof privKey)
+
+        const actualPrivKey = crypto.createPrivateKey({
+            key: fs.readFileSync(privPath, "utf8"),
+            format: "pem",
+            passphrase: SECRET_KEY //was passed in key generation as well, so need to get encrypted key and decrypt from file.
+        });
+
+
+        const signature = crypto.sign(
+          null,
+          Buffer.from(astOutput.projectHash,"hex"),
+          actualPrivKey
+        ).toString("base64");
+
+        const response = await send_to_llm(astOutput);
+        /**
+         * Converting .md to JSON - interactions may not support structured output or return in json format.
+         */
+        const cleaned = response
+            .trim()
+            .replace(/^```(?:json)?\s*/i, "")
+            .replace(/\s*```$/, "");
+
+        const llmResponse = JSON.parse(cleaned);
+        const security = {
+            verdict: llmResponse?.verdict,
+            riskScore: llmResponse?.riskScore,
+            riskLevel: llmResponse?.riskLevel,
+            permissionsMatch: llmResponse?.permissionsMatch,
+            missingPermissions: llmResponse?.missingPermissions,
+            unnecessaryPermissions: llmResponse?.unnecessaryPermissions,
+            findings: llmResponse?.findings
+        };
+        // console.log("Security Review:");
+        // console.log(security);
 
         /**
        * Retrieve commit id.
        * Generate hash.
        */
-
+       const jwt = readToken();
         const repositoryUrl = execSync("git config --get remote.origin.url")
           .toString()
           .trim();
@@ -182,14 +224,47 @@ program
           .toString()
           .trim();    
 
-        // const tempFolder = path.join(os.tmpdir(),'mcp-cli');
-        // fs.writeFileSync(tempFolder,astOutput.toString())
+          const publishPayload = {
+            packageName: manifestJSON?.name,
+            version: manifestJSON?.version,
+            description: manifestJSON?.description,
+            entry: manifestJSON?.entry,
 
+            repository: {
+                url: repositoryUrl,
+                branch
+            },
+
+            commitId,
+
+            permissions: manifestJSON?.permissions,
+
+            manifest: manifestJSON,
+            manifestHash,
+            signature,
+
+            security
+        };
+
+        console.log("payload sent");
+        //console.log(publishPayload)
 
       /**
        * Call backend server.
        */
-      await fetch()
+      console.log("sending to server...");
+      console.log("jwt");
+      console.log(jwt);
+      console.log(PUBLISH_URI);
+      const backendResponse = await fetch(PUBLISH_URI, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${jwt}`
+            },
+            body: JSON.stringify(publishPayload)
+        });      
+      console.log(backendResponse);
 
     }catch(err){
 

@@ -40,8 +40,125 @@ const RepositorySchema = new mongoose.Schema(
     { _id: false }
 );
 
+const FindingSchema = new mongoose.Schema(
+    {
+        severity: {
+            type: String,
+            enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+            required: true
+        },
+
+        category: {
+            type: String,
+            required: true
+        },
+
+        title: {
+            type: String,
+            required: true
+        },
+
+        description: {
+            type: String,
+            required: true
+        },
+
+        recommendation: {
+            type: String,
+            required: true
+        },
+
+        file: {
+            type: String,
+            required: true
+        },
+
+        line: {
+            type: Number,
+            required: true
+        }
+    },
+    { _id: false }
+);
+
+const SecuritySchema = new mongoose.Schema(
+    {
+        verdict: {
+            type: String,
+            enum: ["SAFE", "SUSPICIOUS", "MALICIOUS"],
+            required: true
+        },
+
+        riskScore: {
+            type: Number,
+            min: 0,
+            max: 100,
+            required: true
+        },
+
+        riskLevel: {
+            type: String,
+            enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+            required: true
+        },
+
+        permissionsMatch: {
+            type: Boolean,
+            default: true
+        },
+
+        missingPermissions: {
+            type: [{
+                type: String,
+                enum: ["network", "filesystem", "process", "env"]
+            }],
+            default: []
+        },
+
+        unnecessaryPermissions: {
+            type: [{
+                type: String,
+                enum: ["network", "filesystem", "process", "env"]
+            }],
+            default: []
+        },
+
+        findings: {
+            type: [FindingSchema],
+            default: []
+        }
+    },
+    { _id: false }
+);
+
+// const ScanSchema = new mongoose.Schema(
+//     {
+//         engineVersion: {
+//             type: String,
+//             required: true
+//         },
+
+//         llmModel: {
+//             type: String,
+//             required: true
+//         },
+
+//         scannedAt: {
+//             type: Date,
+//             default: Date.now
+//         },
+
+//         durationMs: {
+//             type: Number,
+//             required: true
+//         }
+//     },
+//     { _id: false }
+// );
+
 const PublishAuditSchema = new mongoose.Schema(
     {
+        // Publisher
         ownerId: {
             type: String,
             required: true,
@@ -59,6 +176,7 @@ const PublishAuditSchema = new mongoose.Schema(
             match: /^github\.[a-zA-Z0-9_-]+$/
         },
 
+        // Package
         packageName: {
             type: String,
             required: true,
@@ -70,6 +188,15 @@ const PublishAuditSchema = new mongoose.Schema(
             required: true
         },
 
+        description: {
+            type: String
+        },
+
+        entry: {
+            type: String,
+            required: true
+        },
+
         repository: {
             type: RepositorySchema,
             required: true
@@ -77,9 +204,16 @@ const PublishAuditSchema = new mongoose.Schema(
 
         commitId: {
             type: String,
-            required: true
+            required: true,
+            index: true
         },
 
+        permissions: {
+            type: PermissionsSchema,
+            default: () => ({})
+        },
+
+        // Manifest & Signature
         manifest: {
             type: mongoose.Schema.Types.Mixed,
             required: true
@@ -95,14 +229,11 @@ const PublishAuditSchema = new mongoose.Schema(
             required: true
         },
 
-        keyId: {
-            type: String,
-            required: true
-        },
 
-        permissions: {
-            type: PermissionsSchema,
-            default: () => ({})
+        // Security Scan
+        security: {
+            type: SecuritySchema,
+            required: true
         },
 
         publishStatus: {
@@ -127,7 +258,17 @@ PublishAuditSchema.index(
     }
 );
 
-PublishAuditSchema.index({ commitId: 1 });
+PublishAuditSchema.index({
+    "security.verdict": 1
+});
+
+PublishAuditSchema.index({
+    "security.riskLevel": 1
+});
+
+PublishAuditSchema.index({
+    "security.findings.severity": 1
+});
 
 export default mongoose.model(
     "publish_audit_collection",
