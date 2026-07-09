@@ -2,10 +2,6 @@ const mongoose = require("mongoose");
 
 const PublicKeySchema = new mongoose.Schema(
     {
-        keyId: {
-            type: String,
-            required: true
-        },
 
         publicKey: {
             type: String,
@@ -59,9 +55,9 @@ const DeveloperSchema = new mongoose.Schema(
             }
         ],
 
-        publicKeys: {
-            type: [PublicKeySchema],
-            default: []
+        publicKey: {
+            type:PublicKeySchema,
+            default: null
         },
 
         trustScore: {

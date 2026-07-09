@@ -1,12 +1,21 @@
 const express = require("express");
 require('dotenv').config();
 const {verifyUserToken} = require('./jwt.js')
-
+/**
+ * Middleware
+ */
+const {validateJWT} = require('./middleware/tokenValidation.middleware.js');
 /**
  * Controllers
  */
 const { githubRedirect} = require("./controller/redirect.controller")
+const {updatePubKey} = require('./controller/namespace.controller.js');
+const {downloadRepo,publishAudit,getKey} = require("./controller/registry.controller.js")
+/**
+ * Schema
+ */
 
+ 
 const router = express.Router();
 
 
@@ -42,9 +51,18 @@ router.get('/test', (req,res)=>{
 //     // 3. Use .lean() for maximum performance to return raw strings to client loader
 // });
 
-router.post('/register', async (req, res) => {
-    res.status(501).json({ msg: "Not implemented" });
-});
+router.get('/getkey',
+    getKey
+)
+
+router.post('/update/pubkey',
+    validateJWT,
+    updatePubKey
+)
+
+router.post("/download/project",
+    validateJWT,
+    downloadRepo);
 
 router.post('/publish', async (req, res) => {
     const auth = req?.headers?.authorization || req?.headers?.Authorization;
@@ -79,4 +97,6 @@ router.get('/oauth/success',(req,res)=>{
     res.status(200);
     res.json({msg : "Auth success"});
 })
+
+
 module.exports = router;

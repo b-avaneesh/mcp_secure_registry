@@ -15,16 +15,18 @@ import crypto from 'crypto';
  * Other directory files.
  */
 import { generateKey, getKeys, privPath, pubPath } from './keyGenerator.js';
+import {POST_PUB_KEY, PUBLISH_URI} from './cli_config/cli.config.js';
 import { manifestSchema } from './manifestJson.validation.js';
 import { writeToken, readToken } from './tokenHandler.js';
 import { performDFS } from './astGenerator.js';
 import { send_to_llm } from './llm.js';
+import {checkIntegrity, checkManifest} from './integrity.js'
 /**
  * Initialising step.
  */
 dotenv.config();
 const program = new Command();
-const { SECRET_KEY, GIHUB_CLIENT_ID, REDIRECT_URI, GITHUB_URL, BACKEND, PUBLISH_URI } = process.env;
+const { SECRET_KEY, GIHUB_CLIENT_ID, REDIRECT_URI, GITHUB_URL, BACKEND } = process.env;
 
 
 /**
@@ -96,6 +98,24 @@ program
                 */
                
               writeToken(token);
+              /**
+               * Send details - about public key
+               */
+              const publicKeyData = {
+                publicKey : pubKey
+              }
+              await fetch(POST_PUB_KEY, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${jwt}`
+                },
+                body: publicKeyData
+              });      
+
+            /**
+             * Exit
+             */
               res.writeHead(200, { 'Content-Type': 'application/json' })
               res.end("Closing server\n"); 
               server.close(() =>{
@@ -247,7 +267,6 @@ program
         };
 
         console.log("payload sent");
-        //console.log(publishPayload)
 
       /**
        * Call backend server.
@@ -277,6 +296,133 @@ program
 
     //working on signing logic first, then proceed with AST.
   })
+program
+    .command("download <projectName> <devName> <userVersion>")
+    .action(async (projectName, devName, userVersion) => {
+
+        const tempDir = path.join(
+            os.tmpdir(),
+            "mcp_downloads",
+            `${projectName}_${devName}_${crypto.randomUUID()}`
+        );
+
+        fs.mkdirSync(tempDir, { recursive: true });
+
+        try {
+
+            /**
+             * Fetch package metadata
+             */
+            const response = await fetch(DOWNLOAD_PROJECT_URI, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    packageName: projectName,
+                    githubUsername: devName,
+                    version: userVersion
+                })
+            });
+            if (!response.ok)
+              throw new Error("Failed to fetch package metadata.");
+
+            const audit = await response.json();
+
+            const {
+                repository,
+                signature
+            } = audit;
+
+            const {
+                url,
+                branch
+            } = repository;
+
+            /**
+             * Clone project
+             */
+
+            execSync(
+                `git clone --branch ${branch} "${url}" "${tempDir}"`,
+                {
+                    stdio: "inherit"
+                }
+            );
+
+            execSync(
+                `git -C "${tempDir}" checkout ${audit.commitId}`,
+                {
+                    stdio: "inherit"
+                }
+            );
+
+            /**
+             * Verify project integrity
+             */
+            let integrity;
+            try{
+              integrity = checkIntegrity(tempDir, audit);
+            }catch(err){
+              console.log(err.message);
+              return;
+            } 
+
+            /**
+             * Fetch developer public key
+             */
+            const responseKey = await fetch(GET_PUBLIC_KEY, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    githubUsername: devName
+                })
+            });
+
+
+          if (!responseKey.ok)
+              throw new Error("Failed to fetch public key.");
+
+            const { publicKey } = await responseKey.json();
+
+            /**
+             * Verify signature
+             */
+            const verified = crypto.verify(
+                null,
+                Buffer.from(integrity.projectHash, "hex"),
+                publicKey,
+                Buffer.from(signature, "base64")
+            );
+
+            if (!verified) {
+                throw new Error("Signature verification failed.");
+            }
+
+            console.log("✓ Integrity verified.");
+            console.log("✓ Signature verified.");
+
+            /**
+             * Install project
+             * (We'll decide later whether to move or clone again.)
+             */
+
+        } catch (err) {
+
+            console.error(err.message);
+
+        } finally {
+
+            fs.rmSync(tempDir, {
+                recursive: true,
+                force: true
+            });
+
+        }
+
+    });
 
 program.parse(process.argv);
 
