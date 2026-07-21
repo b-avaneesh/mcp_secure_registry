@@ -8,11 +8,11 @@ export function checkIntegrity(directory, audit) {
     /**
      * Checks for project manifest Hash - if any  modification to manifest - throws error.
      */
-    // const manifestResult = checkManifest(directory, audit);
+    const manifestResult = checkManifest(directory, audit);
 
-    // if (!manifestResult.success) {
-    //     throw new Error("PROJECT_COMPROMISED");
-    // }
+    if (!manifestResult.success) {
+        throw new Error("PROJECT_COMPROMISED");
+    }
 
     const manifest = JSON.parse(
         fs.readFileSync(
@@ -92,7 +92,7 @@ console.log("Exists:", fs.existsSync(entryPoint));
     shaFile.sort((a, b) => a[0].localeCompare(b[0]));
     console.log("Sha for each file");
     console.log(shaFile);
-    
+
     const cumulativeSHA = shaFile
         .map(([file, sha]) => `${file}:${sha}`)
         .join("\n");
