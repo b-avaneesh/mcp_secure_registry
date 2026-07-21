@@ -90,7 +90,9 @@ console.log("Exists:", fs.existsSync(entryPoint));
     }
 
     shaFile.sort((a, b) => a[0].localeCompare(b[0]));
-
+    console.log("Sha for each file");
+    console.log(shaFile);
+    
     const cumulativeSHA = shaFile
         .map(([file, sha]) => `${file}:${sha}`)
         .join("\n");

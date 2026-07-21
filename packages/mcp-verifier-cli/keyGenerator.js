@@ -1,8 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import dotenv from 'dotenv';
-dotenv.config();
+// import dotenv from 'dotenv';
+// dotenv.config();
 
 import { generateKeyPairSync } from 'crypto';
 

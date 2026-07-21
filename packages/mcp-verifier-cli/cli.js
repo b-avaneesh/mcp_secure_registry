@@ -27,9 +27,18 @@ import {checkIntegrity, checkManifest} from './integrity.js'
 /**
  * Initialising step.
  */
-dotenv.config();
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({
+    path: path.join(__dirname, ".env")
+});
+
 const program = new Command();
 const { SECRET_KEY, GIHUB_CLIENT_ID, REDIRECT_URI, GITHUB_URL, BACKEND } = process.env;
+
 
 
 /**
@@ -40,14 +49,24 @@ const { SECRET_KEY, GIHUB_CLIENT_ID, REDIRECT_URI, GITHUB_URL, BACKEND } = proce
  * Defining tools
  */
 program
-  .name('my-cli')
-  .description('A CLI application built with Commander.js')
-  .version('1.0.0')
-  .option('-d , --debug', 'output extra debugging info');
+  .name("mcp-secure-registry")
+  .description(`
+╔══════════════════════════════════════════════════════════════╗
+║                 MCP Secure Registry CLI                     ║
+║                                                              ║
+║  Cryptographically verify • Publish • Download • Trust      ║
+╚══════════════════════════════════════════════════════════════╝
+
+Secure package publishing and verification for MCP servers.
+Every package is signed, verified, and security reviewed before use.
+`)
+  .version("1.0.0", "-v, --version", "Show CLI version")
+  .helpOption("-h, --help", "Display help menu")
+  .option("-d, --debug", "Enable verbose debug logging");
 
 
 program
-  .command('Login')
+  .command('login')
   .description("User login through GitHub OAuth")
   .action(async() =>{
       const PORT = 4242;
@@ -62,7 +81,8 @@ program
        * Retrieve keys regardles of what happens in login.
        */
       const {privKey, pubKey} = getKeys();
-
+              console.log("getting keys - dtype");
+              console.log(typeof pubKey);
       const server = http.createServer(async (req,res) =>{ //creates a http server and returns object.
         /**
          * req has the structure
@@ -106,6 +126,8 @@ program
               /**
                * Send details - about public key
                */
+
+              
               const publicKeyData = {
                 publicKey : pubKey
               }
@@ -115,7 +137,7 @@ program
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${jwt}`
                 },
-                body: publicKeyData
+                body: JSON.stringify(publicKeyData)
               });      
 
             /**
@@ -253,9 +275,7 @@ program
             packageName: manifestJSON?.name,
             version: manifestJSON?.version,
             description: manifestJSON?.description,
-            //entry: manifestJSON?.entry,
-            entry:"./packages/mcp-verifier-cli/test.js",
-
+            entry: manifestJSON?.entry,
             repository: {
                 url: repositoryUrl,
                 branch
@@ -307,7 +327,7 @@ program
 
 
 program
-    .command("download <projectName> <devName> <userVersion>")
+    .command("download <project_name> <GitHub_username> <project_version>")
     .action(async (projectName, devName, userVersion) => {
 
         const tempDir = path.join(
@@ -343,7 +363,7 @@ program
                 repository,
                 signature,
                 commitId
-            } = audit.repo;
+            } = audit;
             console.log("Dev debug -----")
             console.log(audit);
             console.log("Debug ends ----")
@@ -377,6 +397,9 @@ program
             let integrity;
             try{
               integrity = checkIntegrity(tempDir, audit);
+              console.log("final sha");
+              console.log(integrity.projectHash);
+
             }catch(err){
               console.log(err.message);
               return;
@@ -398,9 +421,10 @@ program
 
           if (!responseKey.ok)
               throw new Error("Failed to fetch public key.");
-            console.log("Logging the key response ------ ")
-            console.log(responseKey.json());
+  
             const { publicKey } = await responseKey.json();
+            console.log("public key:")
+            console.log(publicKey)
 
             /**
              * Verify signature

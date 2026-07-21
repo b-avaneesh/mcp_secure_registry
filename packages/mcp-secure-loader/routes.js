@@ -51,7 +51,7 @@ router.get('/test', (req,res)=>{
 //     // 3. Use .lean() for maximum performance to return raw strings to client loader
 // });
 
-router.get('/getkey',
+router.post('/getkey',
     getKey
 )
 

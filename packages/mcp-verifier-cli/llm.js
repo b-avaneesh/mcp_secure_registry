@@ -5,8 +5,8 @@
 import { GoogleGenAI } from "@google/genai";
 import fs from 'fs';
 import * as z from "zod";
-import dotenv from 'dotenv';
-dotenv.config();
+// import dotenv from 'dotenv';
+// dotenv.config();
 
 /**
  * Internal dependencies
@@ -14,9 +14,11 @@ dotenv.config();
 import { prompt, prompt2,prompt3 } from "./cli.config.js";
 const {GEMINI_API_KEY} = process.env;
 
-const client = new GoogleGenAI({
-      apiKey: GEMINI_API_KEY
-});
+function getClient() {
+    return new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY
+    });
+}
 
 /**
  * Response Schema
@@ -144,6 +146,7 @@ const securityReviewSchema = z.fromJSONSchema(securityReviewJsonSchema);
  * @returns output
  */
 async function send_to_llm(astOutput) {
+    const client = getClient();
 
     const json = JSON.stringify(astOutput);
     console.log("Printing the est. token count");

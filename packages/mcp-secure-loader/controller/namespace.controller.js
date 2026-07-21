@@ -17,8 +17,10 @@ const updatePubKey = async_handler(async (req, res) => {
         id: userId,
         authTimestamp: Date.now()
      */
-    const { data } = req.user;
+    const data  = req.user;
     const { publicKey } = req.body;
+
+
 
     await namespace.findOneAndUpdate(
         { email: data.userEmail },

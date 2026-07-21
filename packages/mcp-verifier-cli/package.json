@@ -10,6 +10,9 @@
   "license": "ISC",
   "description": "",
   "type": "module",
+    "bin": {
+    "mcp-verifier": "./cli.js"
+  },
   "dependencies": {
     "@google/genai": "^2.8.0",
     "abstract-syntax-tree": "^2.22.0",

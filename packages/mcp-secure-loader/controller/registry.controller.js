@@ -87,11 +87,11 @@ const downloadRepo = asyncHandler(async (req, res) => {
 
     console.log(repo);
 
-    res.status(201).json({ repo });
+    res.status(201).json( repo );
 });
 
 const getKey = asyncHandler(async (req, res) => {
-    const { githubUsername } = req.user;
+    const { githubUsername } = req.body;
 
     const developer = await namespaceSchema.findOne({
         githubUsername
@@ -105,7 +105,7 @@ const getKey = asyncHandler(async (req, res) => {
 
     const { publicKey } = developer;
 
-    res.status(201).json({ publicKey });
+    res.status(201).json(publicKey);
 });
 
 module.exports = {

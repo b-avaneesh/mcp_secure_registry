@@ -1,8 +1,8 @@
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
-import dotenv from 'dotenv';
-dotenv.config();
+// import dotenv from 'dotenv';
+// dotenv.config();
 const { SECRET_KEY, GIHUB_CLIENT_ID, REDIRECT_URI, GITHUB_URL, BACKEND, PUBLISH_URI } = process.env;
 
 const CONFIG_DIR = path.join(os.homedir(),'.config','mcp-verifier');

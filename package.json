@@ -7,7 +7,6 @@
   },
   "private": true,
   "workspaces": [
-    "apps/*",
     "packages/*"
   ],
   "keywords": [],

@@ -561,5 +561,4 @@ function performDFS(entryPoint) {
  * }})
  * 
  */
-performDFS("./test.js");
 export { performDFS };
