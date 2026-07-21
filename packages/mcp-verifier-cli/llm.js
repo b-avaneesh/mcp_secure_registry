@@ -150,7 +150,7 @@ async function send_to_llm(astOutput) {
     const est = await client.models.countTokens({ model : "gemini-3.5-flash", contents: json })
     console.log(est);
     const interaction = await client.interactions.create({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         input: [
         { type: "text", text: prompt3 },
         { type: "text", text: json }

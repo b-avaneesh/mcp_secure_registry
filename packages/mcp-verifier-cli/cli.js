@@ -15,7 +15,10 @@ import crypto from 'crypto';
  * Other directory files.
  */
 import { generateKey, getKeys, privPath, pubPath } from './keyGenerator.js';
-import {POST_PUB_KEY, PUBLISH_URI} from './cli_config/cli.config.js';
+import { POST_PUB_KEY,
+    PUBLISH_URI,
+    GET_PUBLIC_KEY,
+    DOWNLOAD_PROJECT_URI} from './cli_config/cli.config.js';
 import { manifestSchema } from './manifestJson.validation.js';
 import { writeToken, readToken } from './tokenHandler.js';
 import { performDFS } from './astGenerator.js';
@@ -98,6 +101,8 @@ program
                 */
                
               writeToken(token);
+              const jwt = readToken();
+
               /**
                * Send details - about public key
                */
@@ -248,7 +253,8 @@ program
             packageName: manifestJSON?.name,
             version: manifestJSON?.version,
             description: manifestJSON?.description,
-            entry: manifestJSON?.entry,
+            //entry: manifestJSON?.entry,
+            entry:"./packages/mcp-verifier-cli/test.js",
 
             repository: {
                 url: repositoryUrl,
@@ -267,7 +273,8 @@ program
         };
 
         console.log("payload sent");
-
+        const body = JSON.stringify(publishPayload);
+        console.log(body);
       /**
        * Call backend server.
        */
@@ -283,8 +290,9 @@ program
             },
             body: JSON.stringify(publishPayload)
         });      
-      console.log(backendResponse);
 
+    console.log(await backendResponse.json());
+    
     }catch(err){
 
       console.log("Error encountered! ");
@@ -296,6 +304,8 @@ program
 
     //working on signing logic first, then proceed with AST.
   })
+
+
 program
     .command("download <projectName> <devName> <userVersion>")
     .action(async (projectName, devName, userVersion) => {
@@ -331,12 +341,15 @@ program
 
             const {
                 repository,
-                signature
-            } = audit;
-
+                signature,
+                commitId
+            } = audit.repo;
+            console.log("Dev debug -----")
+            console.log(audit);
+            console.log("Debug ends ----")
             const {
                 url,
-                branch
+               branch,
             } = repository;
 
             /**
@@ -350,8 +363,9 @@ program
                 }
             );
 
+
             execSync(
-                `git -C "${tempDir}" checkout ${audit.commitId}`,
+                `git -C "${tempDir}" checkout ${commitId}`,
                 {
                     stdio: "inherit"
                 }
@@ -384,7 +398,8 @@ program
 
           if (!responseKey.ok)
               throw new Error("Failed to fetch public key.");
-
+            console.log("Logging the key response ------ ")
+            console.log(responseKey.json());
             const { publicKey } = await responseKey.json();
 
             /**

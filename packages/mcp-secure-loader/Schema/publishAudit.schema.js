@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const PermissionsSchema = new mongoose.Schema(
     {
@@ -170,11 +170,11 @@ const PublishAuditSchema = new mongoose.Schema(
             required: true
         },
 
-        namespace: {
-            type: String,
-            required: true,
-            match: /^github\.[a-zA-Z0-9_-]+$/
-        },
+        // namespace: {
+        //     type: String,
+        //     required: true,
+        //     match: /^github\.[a-zA-Z0-9_-]+$/
+        // },
 
         // Package
         packageName: {
@@ -270,7 +270,7 @@ PublishAuditSchema.index({
     "security.findings.severity": 1
 });
 
-export default mongoose.model(
+module.exports = mongoose.model(
     "publish_audit_collection",
     PublishAuditSchema
 );
